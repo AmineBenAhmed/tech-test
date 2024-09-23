@@ -1,5 +1,10 @@
 export interface IPost {
-  id: number;
+  id?: number;
   title: string;
-  comments?: string[];
+}
+
+export interface IComment {
+  id?: string;
+  postId: string;
+  value: string;
 }

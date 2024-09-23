@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsArray, IsString } from 'class-validator';
 
 export class CreatePostDto {
   @ApiProperty()
@@ -11,4 +11,14 @@ export class AddCommentDto {
   @ApiProperty()
   @IsString()
   comment: string;
+}
+
+export class GetPostsResDto {
+  @ApiProperty({ type: String })
+  title: string;
+
+  @ApiProperty({ isArray: true })
+  @IsArray()
+  @IsString({ each: true })
+  comments: string[];
 }

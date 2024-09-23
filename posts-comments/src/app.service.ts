@@ -1,33 +1,64 @@
-import { Injectable } from '@nestjs/common';
-import { IPost } from './interfaces';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Post } from './models/posts.schema';
+import mongoose from 'mongoose';
+import { Comment } from './models/comments.shcema';
+import { GetPostsResDto } from './dtos';
 
 @Injectable()
 export class AppService {
-  private posts: IPost[] = [];
-  private Ids: number = 0;
+  constructor(
+    @InjectModel(Post.name)
+    private postModel: mongoose.Model<Post>,
+    @InjectModel(Comment.name)
+    private commentModel: mongoose.Model<Comment>,
+  ) {}
+
   getHello(name?: string): string {
     return `Hello ${name || 'World'}!`;
   }
 
-  createPost(post: string) {
-    this.Ids++;
-    this.posts.push({
-      id: this.Ids,
-      title: post,
-      comments: [],
-    });
-  }
-
-  getPosts() {
-    return this.posts;
-  }
-
-  addComment(postId: number, comment: string): void {
-    console.log(postId, comment);
-    const post = this.posts.find((post: IPost) => post.id === postId);
+  async createPost(post: string) {
     if (!post) {
-      throw new Error('Post not found');
+      throw new Error('Missing post value!');
     }
-    post.comments.push(comment);
+    const newPost = new this.postModel({ title: post });
+    await newPost.save();
+  }
+
+  async getPosts(): Promise<GetPostsResDto[]> {
+    const posts = await this.postModel.aggregate([
+      {
+        $lookup: {
+          from: 'comments',
+          localField: '_id',
+          foreignField: 'postId',
+          as: 'comments',
+        },
+      },
+      {
+        $sort: { title: -1 },
+      },
+      {
+        $project: {
+          post: '$title',
+          comments: '$comments.value',
+        },
+      },
+    ]);
+
+    return posts;
+  }
+
+  async addComment(postId: string, comment: string): Promise<void> {
+    const existingPost = await this.postModel.findById(postId);
+    if (!existingPost) {
+      throw new ConflictException(
+        'post Id does not match any of the existing posts',
+      );
+    }
+
+    const newComment = new this.commentModel({ postId, value: comment });
+    await newComment.save();
   }
 }
